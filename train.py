@@ -106,4 +106,8 @@ for episode in range(500):
     if episode % 5 == 0:
         print(f"Episode {episode}, total standing reward: {sum(rewards)}")
 
+# --- Save model ---
+torch.save(policy.state_dict(), "humanoid_policy.pth")
+print("Model saved to humanoid_policy.pth")
+
 env.close()
