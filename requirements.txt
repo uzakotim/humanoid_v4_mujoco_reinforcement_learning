@@ -2,3 +2,5 @@ mujoco
 gymnasium
 torch 
 torchvision
+imageio
+packaging

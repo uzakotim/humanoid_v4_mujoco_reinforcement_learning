@@ -10,7 +10,7 @@ gamma = 0.99
 clip_epsilon = 0.2
 ppo_epochs = 10
 max_steps = 1000
-env_name = "Humanoid-v4"
+env_name = "Humanoid-v5"
 
 # --- Custom standing environment wrapper ---
 class StandHumanoidWrapper(gym.Wrapper):
@@ -18,11 +18,11 @@ class StandHumanoidWrapper(gym.Wrapper):
         super().__init__(env)
     
     def step(self, action):
-        obs, _, done, info = self.env.step(action)
-        torso_height = obs[2]  # z-coordinate of torso in Humanoid-v4
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        torso_height = obs[0]  # z-coordinate/height of torso
         # Reward: torso above 1.0 meters
         reward = max(0, torso_height - 1.0)
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
 env = StandHumanoidWrapper(gym.make(env_name))
 obs_dim = env.observation_space.shape[0]
@@ -61,20 +61,21 @@ def compute_returns(rewards, gamma):
 
 # --- Training loop ---
 for episode in range(500):
-    state = env.reset()
+    state, _ = env.reset()
     log_probs = []
     rewards = []
     states = []
     actions = []
 
     for t in range(max_steps):
-        state_tensor = torch.FloatTensor(state)
+        state_tensor = torch.tensor(state, dtype=torch.float32)
         mean, std = policy(state_tensor)
         dist = Normal(mean, std)
         action = dist.sample()
         action_clipped = torch.clamp(action, float(env.action_space.low[0]), float(env.action_space.high[0]))
         
-        next_state, reward, done, _ = env.step(action_clipped.detach().numpy())
+        next_state, reward, terminated, truncated, _ = env.step(action_clipped.detach().numpy())
+        done = terminated or truncated
         
         log_probs.append(dist.log_prob(action).sum())
         rewards.append(reward)
@@ -86,9 +87,9 @@ for episode in range(500):
             break
 
     returns = compute_returns(rewards, gamma)
-    log_probs = torch.stack(log_probs)
+    log_probs = torch.stack(log_probs).detach()
     states = torch.stack(states)
-    actions = torch.stack(actions)
+    actions = torch.stack(actions).detach()
 
     # --- PPO update ---
     for _ in range(ppo_epochs):
