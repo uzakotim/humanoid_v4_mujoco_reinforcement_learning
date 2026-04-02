@@ -61,6 +61,8 @@ def compute_returns(rewards, gamma):
         returns.insert(0, R)
     return torch.tensor(returns)
 
+best_reward = -float('inf')
+
 # --- Training loop ---
 for episode in range(50000):
     state, _ = env.reset()
@@ -88,6 +90,7 @@ for episode in range(50000):
         if done:
             break
 
+    episode_reward = sum(rewards)
     returns = compute_returns(rewards, gamma)
     log_probs = torch.stack(log_probs).detach()
     states = torch.stack(states)
@@ -106,10 +109,12 @@ for episode in range(50000):
         optimizer.step()
 
     if episode % 5 == 0:
-        print(f"Episode {episode}, total standing reward: {sum(rewards)}")
-
-# --- Save model ---
-torch.save(policy.state_dict(), "humanoid_policy.pth")
-print("Model saved to humanoid_policy.pth")
+        print(f"Episode {episode}, total standing reward: {episode_reward}")
+    
+    # --- Save best model ---
+    if episode_reward > best_reward:
+        best_reward = episode_reward
+        torch.save(policy.state_dict(), "humanoid_policy.pth")
+        print(f"New best model saved! (Episode: {episode}, Reward: {episode_reward:.2f})")
 
 env.close()
