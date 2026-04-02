@@ -26,7 +26,13 @@ class Policy(nn.Module):
             nn.Linear(256, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
         )
         self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
