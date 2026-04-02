@@ -21,7 +21,7 @@ class StandHumanoidWrapper(gym.Wrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
         torso_height = obs[0]  # z-coordinate/height of torso
         # Reward: torso above 1.0 meters
-        reward = max(0, torso_height - 1.0)
+        reward = max(0, torso_height - 0.5)
         return obs, reward, terminated, truncated, info
 
 env = StandHumanoidWrapper(gym.make(env_name))
@@ -33,12 +33,14 @@ class Policy(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(obs_dim, 128),
+            nn.Linear(obs_dim, 256),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
             nn.ReLU()
         )
-        self.mean = nn.Linear(128, action_dim)
+        self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
     
     def forward(self, x):
@@ -60,7 +62,7 @@ def compute_returns(rewards, gamma):
     return torch.tensor(returns)
 
 # --- Training loop ---
-for episode in range(500):
+for episode in range(50000):
     state, _ = env.reset()
     log_probs = []
     rewards = []
