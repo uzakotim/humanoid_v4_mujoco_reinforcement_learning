@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
+import numpy as np
 
 # --- Hyperparameters ---
 learning_rate = 3e-4
@@ -20,8 +21,24 @@ class StandHumanoidWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         torso_height = obs[0]  # z-coordinate/height of torso
-        # Reward: torso above 1.0 meters
-        reward = max(0, torso_height - 0.5)
+        
+        # 1. Standing Reward (Encourage staying upright)
+        # torso_height is ~1.0-1.2 when standing
+        standing_reward = max(0, torso_height - 0.5)
+        
+        # 2. Control Penalty (Encourage efficiency and reduce jitter)
+        # Penalizes large action magnitudes
+        control_penalty = 0.01 * np.sum(np.square(action))
+        
+        # 3. Position Penalty (Encourage staying on the spot)
+        # Extracts x and y position from info dictionary to discourage drifting
+        x = info.get("x_position", 0.0)
+        y = info.get("y_position", 0.0)
+        position_penalty = 0.1 * (x**2 + y**2)
+        
+        # Total reward combines these components
+        reward = standing_reward - control_penalty - position_penalty
+        
         return obs, reward, terminated, truncated, info
 
 env = StandHumanoidWrapper(gym.make(env_name))
