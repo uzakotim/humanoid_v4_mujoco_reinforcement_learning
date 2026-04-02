@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
 import numpy as np
+import os
 
 # --- Hyperparameters ---
 learning_rate = 3e-4
@@ -12,7 +13,22 @@ clip_epsilon = 0.2
 ppo_epochs = 10
 max_steps = 1000
 env_name = "Humanoid-v5"
-
+def evaluate_policy(eval_policy, eval_env, steps):
+    eval_policy.eval()
+    state, _ = eval_env.reset()
+    total_reward = 0
+    for _ in range(steps):
+        with torch.no_grad():
+            state_tensor = torch.tensor(state, dtype=torch.float32)
+            mean, _ = eval_policy(state_tensor)
+            action = mean.detach().numpy()
+        action_clipped = np.clip(action, eval_env.action_space.low, eval_env.action_space.high)
+        state, reward, terminated, truncated, _ = eval_env.step(action_clipped)
+        total_reward += reward
+        if terminated or truncated:
+            break
+    eval_policy.train()
+    return total_reward
 # --- Custom standing environment wrapper ---
 class StandHumanoidWrapper(gym.Wrapper):
     def __init__(self, env):
@@ -62,6 +78,36 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
         )
         self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
@@ -73,6 +119,16 @@ class Policy(nn.Module):
         return mean, std
 
 policy = Policy()
+model_path = "humanoid_policy.pth"
+if os.path.exists(model_path):
+    print(f"Loading existing policy from {model_path}...")
+    policy.load_state_dict(torch.load(model_path))
+    print("Evaluating loaded policy for baseline...")
+    best_reward = evaluate_policy(policy, env, max_steps)
+    print(f"Loaded model baseline reward: {best_reward:.2f}")
+else:
+    best_reward = -float('inf')
+
 optimizer = optim.Adam(policy.parameters(), lr=learning_rate)
 
 # --- Helper ---
@@ -84,7 +140,7 @@ def compute_returns(rewards, gamma):
         returns.insert(0, R)
     return torch.tensor(returns)
 
-best_reward = -float('inf')
+
 
 # --- Training loop ---
 for episode in range(50000):
@@ -136,8 +192,22 @@ for episode in range(50000):
     
     # --- Save best model ---
     if episode_reward > best_reward:
-        best_reward = episode_reward
-        torch.save(policy.state_dict(), "humanoid_policy.pth")
-        print(f"New best model saved! (Episode: {episode}, Reward: {episode_reward:.2f})")
+        if os.path.exists(model_path):
+            # Run an episode with the existing model to get a current baseline
+            temp_policy = Policy()
+            temp_policy.load_state_dict(torch.load(model_path))
+            baseline_reward = evaluate_policy(temp_policy, env, max_steps)
+            
+            if episode_reward > baseline_reward:
+                best_reward = episode_reward
+                torch.save(policy.state_dict(), model_path)
+                print(f"New best model saved! (Episode: {episode}, New: {episode_reward:.2f} > Baseline: {baseline_reward:.2f})")
+            else:
+                best_reward = baseline_reward
+                print(f"New score {episode_reward:.2f} didn't beat baseline {baseline_reward:.2f}. Not saving.")
+        else:
+            best_reward = episode_reward
+            torch.save(policy.state_dict(), model_path)
+            print(f"Initial model saved! (Episode: {episode}, Reward: {episode_reward:.2f})")
 
 env.close()
