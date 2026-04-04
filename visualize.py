@@ -87,8 +87,6 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
-             nn.Linear(512, 512),
-            nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
@@ -150,9 +148,11 @@ class Policy(nn.Module):
             nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
             nn.ReLU(),
         )
-        self.mean = nn.Linear(512, action_dim)
+        self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
     
     def forward(self, x):

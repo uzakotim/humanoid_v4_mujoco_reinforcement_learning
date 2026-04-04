@@ -13,7 +13,7 @@ clip_epsilon = 0.2
 ppo_epochs = 10
 max_steps = 1000
 env_name = "Humanoid-v5"
-num_envs = 8  # Number of parallel simulations
+num_envs = 4  # Number of parallel simulations
 
 # --- Custom standing environment wrapper ---
 class StandHumanoidWrapper(gym.Wrapper):
@@ -137,8 +137,6 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
-             nn.Linear(512, 512),
-            nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
@@ -200,9 +198,11 @@ class Policy(nn.Module):
             nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
             nn.ReLU(),
         )
-        self.mean = nn.Linear(512, action_dim)
+        self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
     
     def forward(self, x):
