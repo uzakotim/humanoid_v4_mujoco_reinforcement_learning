@@ -40,7 +40,7 @@ class StandHumanoidWrapper(gym.Wrapper):
         
         # 1. Standing Reward (Encourage staying upright)
         # torso_height is ~1.0-1.2 when standing
-        standing_reward = max(0, torso_height - 0.5)
+        standing_reward = max(0, torso_height - 1.0)
         
         # 2. Control Penalty (Encourage efficiency and reduce jitter)
         # Penalizes large action magnitudes
@@ -66,37 +66,35 @@ class Policy(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(obs_dim, 256),
+            nn.Linear(obs_dim, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
