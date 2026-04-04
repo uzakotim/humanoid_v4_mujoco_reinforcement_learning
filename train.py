@@ -13,7 +13,7 @@ clip_epsilon = 0.2
 ppo_epochs = 10
 max_steps = 1000
 env_name = "Humanoid-v5"
-num_envs = 10  # Number of parallel simulations
+num_envs = 4  # Number of parallel simulations
 
 # --- Custom standing environment wrapper ---
 class StandHumanoidWrapper(gym.Wrapper):
@@ -51,11 +51,12 @@ def evaluate_policy(eval_policy, eval_env, steps):
     eval_policy.eval()
     state, _ = eval_env.reset()
     total_reward = 0
+    device = next(eval_policy.parameters()).device
     for _ in range(steps):
         with torch.no_grad():
-            state_tensor = torch.tensor(state, dtype=torch.float32)
+            state_tensor = torch.tensor(state, dtype=torch.float32).to(device)
             mean, _ = eval_policy(state_tensor)
-            action = mean.detach().numpy()
+            action = mean.cpu().detach().numpy()
         action_clipped = np.clip(action, eval_env.action_space.low, eval_env.action_space.high)
         state, reward, terminated, truncated, _ = eval_env.step(action_clipped)
         total_reward += reward
@@ -70,21 +71,7 @@ class Policy(nn.Module):
     def __init__(self, obs_dim, action_dim):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(obs_dim, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 512),
+            nn.Linear(obs_dim, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -110,6 +97,40 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
         )
         self.mean = nn.Linear(256, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
@@ -122,8 +143,9 @@ class Policy(nn.Module):
 
 # --- Helper ---
 def compute_returns_vectorized(rewards, dones, gamma, n_envs):
+    device = rewards.device
     returns = torch.zeros_like(rewards)
-    R = torch.zeros(n_envs)
+    R = torch.zeros(n_envs, device=device)
     for t in reversed(range(len(rewards))):
         R = rewards[t] + gamma * R * (1 - dones[t])
         returns[t] = R
@@ -139,7 +161,10 @@ if __name__ == "__main__":
     obs_dim = envs.single_observation_space.shape[0]
     action_dim = envs.single_action_space.shape[0]
 
-    policy = Policy(obs_dim, action_dim)
+    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+    print(f"Using device: {device}")
+
+    policy = Policy(obs_dim, action_dim).to(device)
     model_path = "humanoid_policy.pth"
     
     if os.path.exists(model_path):
@@ -163,7 +188,7 @@ if __name__ == "__main__":
 
         # Rollout phase: Collect data from all environments
         for t in range(max_steps):
-            state_tensor = torch.tensor(next_obs, dtype=torch.float32)
+            state_tensor = torch.tensor(next_obs, dtype=torch.float32).to(device)
             with torch.no_grad():
                 mean, std = policy(state_tensor)
                 dist = Normal(mean, std)
@@ -180,8 +205,8 @@ if __name__ == "__main__":
             all_states.append(state_tensor)
             all_actions.append(action)
             all_log_probs.append(log_prob)
-            all_rewards.append(torch.tensor(reward, dtype=torch.float32))
-            all_dones.append(torch.tensor(done, dtype=torch.float32))
+            all_rewards.append(torch.tensor(reward, dtype=torch.float32).to(device))
+            all_dones.append(torch.tensor(done, dtype=torch.float32).to(device))
 
         # Convert to tensors and flatten for PPO update
         states = torch.cat(all_states)
